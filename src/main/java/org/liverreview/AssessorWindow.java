@@ -10,12 +10,13 @@ import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 import java.awt.geom.Path2D;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Locale;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -50,11 +51,13 @@ final class AssessorWindow extends JFrame {
 
     private final MeshSection section = new MeshSection();
     private final JToggleButton measure = new JToggleButton("Pick two points");
-    private final MeshViewport viewport = new MeshViewport(section, measure::isSelected, this::recordPick);
+    private final MeshViewport viewport = new MeshViewport(section, this::shouldPick, this::recordPick);
     private final ContourPanel contour = new ContourPanel();
     private final CardLayout viewCards = new CardLayout();
     private final JPanel view = new JPanel(viewCards);
+    private final JPanel mainView = new JPanel(new BorderLayout(0, 8));
     private final JButton open = new JButton("Open mesh…");
+    private final JButton openCase = new JButton("Open MRI case…");
     private final JButton reset = new JButton("Reset view");
     private final JComboBox<Axis> axis = new JComboBox<>(Axis.values());
     private final JSlider position = new JSlider(0, SLICE_STEPS, SLICE_STEPS / 2);
@@ -68,11 +71,23 @@ final class AssessorWindow extends JFrame {
     private final JLabel distance = label("—", 21, true, TEAL);
     private final JLabel units = label("Model units", 13, false, MUTED);
     private final JLabel status = label("Open an STL or OBJ mesh to begin.", 13, false, MUTED);
+    private final JCheckBox showReference = new JCheckBox("3D mask", true);
+    private final JCheckBox showGenerated = new JCheckBox("3D mesh", true);
+    private final JButton compare = new JButton("Confirm and compare");
+    private final JButton closeCase = new JButton("Close MRI");
+    private final JLabel alignment = label("", 13, false, MUTED);
+    private final JLabel meshDeviation = label(" ", 13, false, INK);
+    private final JLabel maskDeviation = label(" ", 13, false, INK);
+    private final JPanel mriControls = new JPanel(new BorderLayout());
     private final Timer sliceTimer = new Timer(30, event -> refreshSection());
     private final DecimalFormat numbers = new DecimalFormat("0.###", DecimalFormatSymbols.getInstance(Locale.ROOT));
 
     private Mesh mesh;
     private Path loadedPath;
+    private MriCase mriCase;
+    private MriPanel mriPanel;
+    private boolean busy;
+    private boolean compared;
     private Point first;
     private Point second;
     private double mmPerUnit = Double.NaN;
@@ -88,13 +103,20 @@ final class AssessorWindow extends JFrame {
         root.setBackground(BACKGROUND);
         root.setBorder(BorderFactory.createEmptyBorder(15, 18, 12, 18));
         root.add(toolbar(), BorderLayout.NORTH);
-        root.add(modelView(), BorderLayout.CENTER);
+        mainView.setOpaque(false);
+        mainView.add(modelView(), BorderLayout.CENTER);
+        root.add(mainView, BorderLayout.CENTER);
         root.add(sidebar(), BorderLayout.EAST);
         root.add(status, BorderLayout.SOUTH);
         setContentPane(root);
 
         sliceTimer.setRepeats(false);
         open.addActionListener(event -> chooseMesh());
+        openCase.addActionListener(event -> chooseMriCase());
+        compare.addActionListener(event -> compareSurfaces());
+        closeCase.addActionListener(event -> clearMriCase());
+        showReference.addActionListener(event -> refreshLayers());
+        showGenerated.addActionListener(event -> refreshLayers());
         reset.addActionListener(event -> {
             viewport.resetCameraView();
             viewport.Render();
@@ -147,6 +169,7 @@ final class AssessorWindow extends JFrame {
         open.setForeground(Color.WHITE);
         open.setMnemonic(KeyEvent.VK_O);
         actions.add(open);
+        actions.add(openCase);
         toolbar.add(actions, BorderLayout.EAST);
         return toolbar;
     }
@@ -167,6 +190,14 @@ final class AssessorWindow extends JFrame {
         var sidebar = new JPanel();
         sidebar.setBackground(BACKGROUND);
         sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
+        mriControls.setOpaque(false);
+        mriControls.setAlignmentX(Component.LEFT_ALIGNMENT);
+        mriControls.setBorder(BorderFactory.createEmptyBorder(0, 0, 12, 0));
+        mriControls.add(card("MRI comparison", alignment,
+                row(showGenerated, showReference), row(compare, closeCase), meshDeviation, maskDeviation));
+        mriControls.setMaximumSize(new Dimension(Integer.MAX_VALUE, mriControls.getPreferredSize().height));
+        mriControls.setVisible(false);
+        sidebar.add(mriControls);
         sidebar.add(card("Slice",
                 row(label("Model axis", 14, false, INK), axis),
                 position, sliceValue, row(clip, flip)));
@@ -236,32 +267,73 @@ final class AssessorWindow extends JFrame {
     }
 
     void openMesh(Path path) {
-        open.setEnabled(false);
-        status.setText("Opening " + path.getFileName() + "…");
-        new SwingWorker<Mesh, Void>() {
+        runBackground("Opening " + path.getFileName() + "…", "Could not open mesh",
+                () -> Mesh.open(path), loaded -> displayMesh(loaded, path));
+    }
+
+    private void chooseMriCase() {
+        var inputs = MriCaseDialog.choose(this, loadedPath);
+        if (inputs != null) {
+            runBackground("Opening MRI case…", "Could not open MRI case", () -> loadCase(inputs), loaded -> {
+                displayMesh(loaded.mesh(), inputs.mesh());
+                displayMri(loaded.mriCase(), inputs.mri());
+            });
+        }
+    }
+
+    private static LoadedCase loadCase(MriCaseDialog.Inputs inputs) throws java.io.IOException {
+        var transform = inputs.meshToRas();
+        Mesh loaded = Mesh.open(inputs.mesh());
+        try {
+            return new LoadedCase(loaded,
+                    MriCase.open(inputs.mri(), inputs.mask(), inputs.assumeMm(), loaded, transform));
+        } catch (java.io.IOException | RuntimeException error) {
+            loaded.close();
+            throw error;
+        }
+    }
+
+    private <T> void runBackground(String message, String errorTitle, Callable<T> task, Consumer<T> onSuccess) {
+        setBusy(true);
+        status.setText(message);
+        new SwingWorker<T, Void>() {
             @Override
-            protected Mesh doInBackground() throws IOException {
-                return Mesh.open(path);
+            protected T doInBackground() throws Exception {
+                return task.call();
             }
 
             @Override
             protected void done() {
-                open.setEnabled(true);
                 try {
-                    displayMesh(get(), path);
+                    onSuccess.accept(get());
                 } catch (InterruptedException error) {
                     Thread.currentThread().interrupt();
-                    status.setText("File open was interrupted.");
-                } catch (ExecutionException error) {
-                    status.setText("Could not open " + path.getFileName() + ".");
-                    JOptionPane.showMessageDialog(AssessorWindow.this, error.getCause().getMessage(),
-                            "Could not open mesh", JOptionPane.ERROR_MESSAGE);
+                    status.setText("The operation was interrupted.");
+                } catch (ExecutionException | RuntimeException error) {
+                    status.setText(errorTitle + ".");
+                    Throwable cause = error instanceof ExecutionException ? error.getCause() : error;
+                    JOptionPane.showMessageDialog(AssessorWindow.this, cause.getMessage(),
+                            errorTitle, JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    setBusy(false);
                 }
             }
         }.execute();
     }
 
+    private void setBusy(boolean value) {
+        busy = value;
+        open.setEnabled(!busy);
+        openCase.setEnabled(!busy);
+        closeCase.setEnabled(!busy);
+        compare.setEnabled(!busy && mriCase != null && mriCase.hasMeshAlignment() && !compared);
+        if (mriPanel != null) {
+            mriPanel.setNavigationEnabled(!busy);
+        }
+    }
+
     private void displayMesh(Mesh loaded, Path path) {
+        clearMriCase();
         var previous = mesh;
         mesh = loaded;
         loadedPath = path.toAbsolutePath();
@@ -284,6 +356,101 @@ final class AssessorWindow extends JFrame {
         file.setToolTipText(loadedPath.toString());
         updateReading();
         refreshSection();
+    }
+
+    private void displayMri(MriCase loaded, Path path) {
+        mriCase = loaded;
+        try {
+            mriPanel = new MriPanel(loaded, path.getFileName().toString(), this::trackMriCursor);
+        } catch (RuntimeException error) {
+            clearMriCase();
+            throw error;
+        }
+        mainView.add(mriPanel, BorderLayout.SOUTH);
+        mainView.revalidate();
+        mainView.repaint();
+        viewport.setReference(loaded.referenceInModel());
+        boolean linked = loaded.hasMeshAlignment();
+        showReference.setVisible(linked);
+        showGenerated.setVisible(linked);
+        compare.setVisible(linked);
+        showReference.setSelected(true);
+        showGenerated.setSelected(true);
+        alignment.setText(linked ? "Preview · review all three planes" : "Mesh alignment unavailable");
+        meshDeviation.setText(" ");
+        maskDeviation.setText(" ");
+        mriControls.setVisible(true);
+        refreshLayers();
+        status.setText(linked ? "Click the mesh or a slice to move the MRI cursor."
+                : "MRI and liver mask loaded. Choose a mesh transform to compare surfaces.");
+    }
+
+    private void clearMriCase() {
+        if (mriCase == null) {
+            return;
+        }
+        if (mriPanel != null) {
+            mainView.remove(mriPanel);
+            mriPanel.close();
+            mriPanel = null;
+        }
+        viewport.setLayers(true, false);
+        viewport.setReference(null);
+        viewport.setMriCursor(null);
+        mriCase.close();
+        mriCase = null;
+        compared = false;
+        mriControls.setVisible(false);
+        mainView.revalidate();
+        mainView.repaint();
+        viewport.Render();
+        updateReading();
+    }
+
+    private void refreshLayers() {
+        boolean linked = mriCase != null && mriCase.hasMeshAlignment();
+        viewport.setLayers(!linked || showGenerated.isSelected(), linked && showReference.isSelected());
+        viewport.Render();
+    }
+
+    private boolean shouldPick() {
+        return measure.isSelected() || (!busy && mriCase != null && mriCase.hasMeshAlignment()
+                && showGenerated.isSelected());
+    }
+
+    private void trackMriCursor(Point ras) {
+        if (mriCase != null && mriCase.hasMeshAlignment()) {
+            viewport.setMriCursor(mriCase.rasToMesh().apply(ras));
+            viewport.Render();
+        }
+    }
+
+    private void compareSurfaces() {
+        MriCase current = mriCase;
+        if (current == null || !current.hasMeshAlignment()) {
+            return;
+        }
+        int answer = JOptionPane.showConfirmDialog(this,
+                """
+                Confirm that the MRI and liver mask belong to the same case.
+                Check the mesh orientation, position, and scale against the
+                liver outline in all three planes before comparing.
+                """,
+                "Confirm alignment", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (answer == JOptionPane.OK_OPTION) {
+            runBackground("Comparing surfaces…", "Could not compare surfaces",
+                    () -> SurfaceDeviation.measure(current.alignedMesh(), current.reference()), result -> {
+                        compared = true;
+                        alignment.setText("Vertex distances · median / P95");
+                        meshDeviation.setText("Mesh → mask  " + formatDeviation(result.meshToMask()));
+                        maskDeviation.setText("Mask → mesh  " + formatDeviation(result.maskToMesh()));
+                        status.setText("Surface comparison complete.");
+                    });
+        }
+    }
+
+    private String formatDeviation(SurfaceDeviation.Summary summary) {
+        return format(summary.median()) + " / " + format(summary.p95()) + " mm";
     }
 
     private void enableMeshControls(boolean enabled) {
@@ -310,6 +477,14 @@ final class AssessorWindow extends JFrame {
     }
 
     private void recordPick(Point point) {
+        if (!busy && mriPanel != null && mriCase.hasMeshAlignment()) {
+            Point ras = mriCase.meshToRas().apply(point);
+            if (mriCase.mri().bounds().contains(ras)) {
+                mriPanel.setCursorPoint(ras);
+            } else if (!measure.isSelected()) {
+                status.setText("The selected point is outside the MRI view.");
+            }
+        }
         if (mesh == null || !measure.isSelected()) {
             return;
         }
@@ -389,5 +564,8 @@ final class AssessorWindow extends JFrame {
             return String.format(Locale.ROOT, "%.3g", value);
         }
         return numbers.format(value);
+    }
+
+    private record LoadedCase(Mesh mesh, MriCase mriCase) {
     }
 }

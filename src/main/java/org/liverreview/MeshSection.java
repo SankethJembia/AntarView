@@ -6,7 +6,7 @@ import vtk.vtkCutter;
 import vtk.vtkIdList;
 import vtk.vtkPlane;
 
-final class MeshSection {
+final class MeshSection implements AutoCloseable {
     private final vtkPlane plane = new vtkPlane();
     private final vtkCutter cutter = new vtkCutter();
     private final vtkIdList line = new vtkIdList();
@@ -54,5 +54,12 @@ final class MeshSection {
             }
         }
         return path;
+    }
+
+    @Override
+    public void close() {
+        line.Delete();
+        cutter.Delete();
+        plane.Delete();
     }
 }

@@ -110,5 +110,15 @@ record Mesh(vtkPolyData data, Bounds bounds) implements AutoCloseable {
         double diagonal() {
             return min.distanceTo(max);
         }
+
+        boolean contains(Point point) {
+            for (Axis axis : Axis.values()) {
+                double value = point.along(axis);
+                if (value < min.along(axis) || value > max.along(axis)) {
+                    return false;
+                }
+            }
+            return true;
+        }
     }
 }

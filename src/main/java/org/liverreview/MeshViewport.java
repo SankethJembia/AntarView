@@ -16,14 +16,18 @@ import vtk.vtkSphereSource;
 final class MeshViewport extends vtkPanel {
     private final vtkPolyDataMapper surfaceMapper = new vtkPolyDataMapper();
     private final vtkActor surface = new vtkActor();
+    private final vtkPolyDataMapper referenceMapper = new vtkPolyDataMapper();
+    private final vtkActor reference = new vtkActor();
     private final vtkActor outline;
     private final vtkCellPicker picker = new vtkCellPicker();
     private final vtkSphereSource firstMarker = new vtkSphereSource();
     private final vtkSphereSource secondMarker = new vtkSphereSource();
+    private final vtkSphereSource cursorMarker = new vtkSphereSource();
     private final vtkLineSource ruler = new vtkLineSource();
     private final vtkActor firstActor;
     private final vtkActor secondActor;
     private final vtkActor rulerActor;
+    private final vtkActor cursorActor;
 
     MeshViewport(MeshSection section, BooleanSupplier isMeasuring, Consumer<Mesh.Point> onPick) {
         GetRenderer().SetBackground(0.060, 0.092, 0.132);
@@ -34,6 +38,14 @@ final class MeshViewport extends vtkPanel {
         surface.GetProperty().SetAmbient(0.30);
         surface.GetProperty().SetDiffuse(0.70);
         GetRenderer().AddActor(surface);
+        reference.SetMapper(referenceMapper);
+        referenceMapper.ScalarVisibilityOff();
+        reference.GetProperty().SetColor(0.98, 0.78, 0.44);
+        reference.GetProperty().SetRepresentationToWireframe();
+        reference.GetProperty().SetOpacity(0.55);
+        reference.PickableOff();
+        reference.VisibilityOff();
+        GetRenderer().AddActor(reference);
 
         outline = addOverlay(section.cutter(), 0.97, 0.80, 0.44);
         outline.GetProperty().SetLineWidth(3.0f);
@@ -41,6 +53,7 @@ final class MeshViewport extends vtkPanel {
         secondActor = addOverlay(secondMarker, 1.0, 0.90, 0.58);
         rulerActor = addOverlay(ruler, 1.0, 0.90, 0.58);
         rulerActor.GetProperty().SetLineWidth(3.0f);
+        cursorActor = addOverlay(cursorMarker, 0.95, 0.63, 0.86);
 
         picker.PickFromListOn();
         picker.AddPickList(surface);
@@ -84,16 +97,41 @@ final class MeshViewport extends vtkPanel {
         surfaceMapper.ScalarVisibilityOff();
         firstMarker.SetRadius(mesh.bounds().diagonal() * 0.008);
         secondMarker.SetRadius(mesh.bounds().diagonal() * 0.008);
+        cursorMarker.SetRadius(mesh.bounds().diagonal() * 0.012);
         setPicks(null, null);
         resetCameraView();
     }
 
     void setClipping(MeshSection section, boolean enabled) {
         surfaceMapper.RemoveAllClippingPlanes();
+        referenceMapper.RemoveAllClippingPlanes();
         if (enabled) {
             surfaceMapper.AddClippingPlane(section.plane());
+            referenceMapper.AddClippingPlane(section.plane());
         }
-        outline.SetVisibility(enabled ? 1 : 0);
+        outline.SetVisibility(enabled && surface.GetVisibility() != 0 ? 1 : 0);
+    }
+
+    void setReference(Mesh mesh) {
+        if (mesh == null) {
+            referenceMapper.RemoveAllInputs();
+        } else {
+            referenceMapper.SetInputData(mesh.data());
+        }
+    }
+
+    void setLayers(boolean showGenerated, boolean showReference) {
+        surface.SetVisibility(showGenerated ? 1 : 0);
+        surface.GetProperty().SetOpacity(showReference ? 0.68 : 1);
+        reference.SetVisibility(showReference ? 1 : 0);
+        outline.SetVisibility(showGenerated && surfaceMapper.GetNumberOfClippingPlanes() != 0 ? 1 : 0);
+    }
+
+    void setMriCursor(Mesh.Point point) {
+        cursorActor.SetVisibility(point == null ? 0 : 1);
+        if (point != null) {
+            cursorMarker.SetCenter(point.coordinates());
+        }
     }
 
     void setPicks(Mesh.Point first, Mesh.Point second) {
