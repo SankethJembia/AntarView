@@ -16,9 +16,7 @@ final class MriSlices implements AutoCloseable {
 
     private final Bounds bounds;
     private final double sampling;
-    private final double low;
-    private final double high;
-    private final boolean invertGrayscale;
+    private final MriGrayscale grayscale;
     private final SpatialTransform rasToNative;
     private final vtkImageReslice reslice = new vtkImageReslice();
     private final vtkMatrix4x4 resliceAxes = new vtkMatrix4x4();
@@ -28,26 +26,19 @@ final class MriSlices implements AutoCloseable {
     MriSlices(MriCase mriCase) {
         var mri = mriCase.mri();
         bounds = mri.bounds();
-        var nativeBounds = Bounds.of(mri.data().GetBounds());
-        int[] size = mri.data().GetDimensions();
         double smallest = Double.POSITIVE_INFINITY;
         for (Axis axis : Axis.values()) {
-            double norm = Math.hypot(Math.hypot(mri.nativeToRas().axisComponent(0, axis),
-                    mri.nativeToRas().axisComponent(1, axis)), mri.nativeToRas().axisComponent(2, axis));
-            smallest = Math.min(smallest, norm * nativeBounds.size(axis) / (size[axis.ordinal()] - 1));
+            smallest = Math.min(smallest, mri.voxelStepMm(axis));
         }
         sampling = smallest;
-        double[] intensity = mri.data().GetScalarRange();
-        low = intensity[0];
-        high = intensity[1] > low ? intensity[1] : low + 1;
-        invertGrayscale = mri.slope() < 0;
+        grayscale = MriGrayscale.forVolume(mri);
         rasToNative = mri.nativeToRas().inverse();
         reslice.SetInputData(mri.data());
         reslice.SetOutputDimensionality(2);
         reslice.SetOutputOrigin(0, 0, 0);
         reslice.SetOutputScalarType(VTK_FLOAT);
         reslice.SetInterpolationModeToLinear();
-        reslice.SetBackgroundLevel(invertGrayscale ? high : low);
+        reslice.SetBackgroundLevel(grayscale.backgroundValue());
         reslice.SetResliceAxes(resliceAxes);
         reference.setMesh(mriCase.reference());
         generated = mriCase.hasMeshAlignment() ? new MeshSection() : null;
@@ -80,12 +71,7 @@ final class MriSlices implements AutoCloseable {
         for (int row = 0; row < height; row++) {
             int sourceRow = (height - 1 - row) * width;
             for (int column = 0; column < width; column++) {
-                double normalized = (voxels[sourceRow + column] - low) / (high - low);
-                if (invertGrayscale) {
-                    normalized = 1 - normalized;
-                }
-                int grey = (int) Math.round(255 * Math.clamp(normalized, 0, 1));
-                pixels[row * width + column] = (grey << 16) | (grey << 8) | grey;
+                pixels[row * width + column] = grayscale.rgb(voxels[sourceRow + column]);
             }
         }
 

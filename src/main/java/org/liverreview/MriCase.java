@@ -1,7 +1,9 @@
 package org.liverreview;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
 import org.liverreview.Mesh.Axis;
 import org.liverreview.Mesh.Bounds;
 import org.liverreview.Mesh.Point;
@@ -12,13 +14,14 @@ import vtk.vtkPolyData;
 import vtk.vtkTransform;
 import vtk.vtkTransformPolyDataFilter;
 
-record MriCase(NiftiVolume mri, Mesh reference, Mesh alignedMesh, Mesh referenceInModel,
+record MriCase(NiftiVolume mri, MriIdentity identity, Mesh reference, Mesh alignedMesh, Mesh referenceInModel,
                SpatialTransform meshToRas, SpatialTransform rasToMesh) implements AutoCloseable {
     static MriCase open(Path mriPath, Path maskPath, boolean assumeMillimetres,
                         Mesh generated, SpatialTransform meshToRas) throws IOException {
-        if (java.nio.file.Files.isSameFile(mriPath, maskPath)) {
+        if (Files.isSameFile(mriPath, maskPath)) {
             throw new IOException("Select the MRI and its separate liver mask.");
         }
+        var attributes = Files.readAttributes(mriPath, BasicFileAttributes.class);
         var mri = NiftiVolume.open(mriPath, assumeMillimetres);
         Mesh reference = null;
         Mesh aligned = null;
@@ -31,8 +34,9 @@ record MriCase(NiftiVolume mri, Mesh reference, Mesh alignedMesh, Mesh reference
             if (!overlaps(mri.bounds(), reference.bounds())) {
                 throw new IOException("The liver mask is outside the MRI in physical space.");
             }
+            var identity = MriIdentity.read(mriPath, mri, attributes);
             if (meshToRas == null) {
-                return new MriCase(mri, reference, null, null, null, null);
+                return new MriCase(mri, identity, reference, null, null, null, null);
             }
             aligned = transform(generated.data(), meshToRas);
             if (!overlaps(reference.bounds(), aligned.bounds())) {
@@ -41,7 +45,7 @@ record MriCase(NiftiVolume mri, Mesh reference, Mesh alignedMesh, Mesh reference
             }
             var inverse = meshToRas.inverse();
             referenceInModel = transform(reference.data(), inverse);
-            return new MriCase(mri, reference, aligned, referenceInModel, meshToRas, inverse);
+            return new MriCase(mri, identity, reference, aligned, referenceInModel, meshToRas, inverse);
         } catch (IOException | RuntimeException error) {
             closeMesh(referenceInModel);
             closeMesh(aligned);

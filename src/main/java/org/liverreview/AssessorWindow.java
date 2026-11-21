@@ -74,6 +74,7 @@ final class AssessorWindow extends JFrame {
     private final JCheckBox showReference = new JCheckBox("3D mask", true);
     private final JCheckBox showGenerated = new JCheckBox("3D mesh", true);
     private final JButton compare = new JButton("Confirm and compare");
+    private final JButton annotate = new JButton("Tumor annotations…");
     private final JButton closeCase = new JButton("Close MRI");
     private final JLabel alignment = label("", 13, false, MUTED);
     private final JLabel meshDeviation = label(" ", 13, false, INK);
@@ -86,6 +87,7 @@ final class AssessorWindow extends JFrame {
     private Path loadedPath;
     private MriCase mriCase;
     private MriPanel mriPanel;
+    private Path annotationsPath;
     private boolean busy;
     private boolean compared;
     private Point first;
@@ -114,6 +116,7 @@ final class AssessorWindow extends JFrame {
         open.addActionListener(event -> chooseMesh());
         openCase.addActionListener(event -> chooseMriCase());
         compare.addActionListener(event -> compareSurfaces());
+        annotate.addActionListener(event -> editTumorAnnotations());
         closeCase.addActionListener(event -> clearMriCase());
         showReference.addActionListener(event -> refreshLayers());
         showGenerated.addActionListener(event -> refreshLayers());
@@ -194,7 +197,8 @@ final class AssessorWindow extends JFrame {
         mriControls.setAlignmentX(Component.LEFT_ALIGNMENT);
         mriControls.setBorder(BorderFactory.createEmptyBorder(0, 0, 12, 0));
         mriControls.add(card("MRI comparison", alignment,
-                row(showGenerated, showReference), row(compare, closeCase), meshDeviation, maskDeviation));
+                row(showGenerated, showReference), row(compare, closeCase), meshDeviation, maskDeviation,
+                row(annotate)));
         mriControls.setMaximumSize(new Dimension(Integer.MAX_VALUE, mriControls.getPreferredSize().height));
         mriControls.setVisible(false);
         sidebar.add(mriControls);
@@ -326,6 +330,7 @@ final class AssessorWindow extends JFrame {
         open.setEnabled(!busy);
         openCase.setEnabled(!busy);
         closeCase.setEnabled(!busy);
+        annotate.setEnabled(!busy && mriPanel != null);
         compare.setEnabled(!busy && mriCase != null && mriCase.hasMeshAlignment() && !compared);
         if (mriPanel != null) {
             mriPanel.setNavigationEnabled(!busy);
@@ -399,12 +404,21 @@ final class AssessorWindow extends JFrame {
         viewport.setMriCursor(null);
         mriCase.close();
         mriCase = null;
+        annotationsPath = null;
         compared = false;
         mriControls.setVisible(false);
         mainView.revalidate();
         mainView.repaint();
         viewport.Render();
         updateReading();
+    }
+
+    private void editTumorAnnotations() {
+        if (mriPanel != null) {
+            var editor = new TumorAnnotationDialog(this, mriCase, annotationsPath, mriPanel.cursorPoint());
+            editor.setVisible(true);
+            annotationsPath = editor.savedPath();
+        }
     }
 
     private void refreshLayers() {

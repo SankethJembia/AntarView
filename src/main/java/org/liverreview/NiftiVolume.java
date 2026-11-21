@@ -11,7 +11,7 @@ import vtk.vtkImageData;
 import vtk.vtkNIFTIImageReader;
 
 record NiftiVolume(vtkImageData data, SpatialTransform nativeToRas, int spaceCode,
-                   double slope, double intercept) implements AutoCloseable {
+                   double slope, double intercept, boolean reversedK) implements AutoCloseable {
     static NiftiVolume open(Path path, boolean assumeMillimetres) throws IOException {
         String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
         if (!name.endsWith(".nii") && !name.endsWith(".nii.gz")) {
@@ -64,7 +64,7 @@ record NiftiVolume(vtkImageData data, SpatialTransform nativeToRas, int spaceCod
             var image = new vtkImageData();
             image.ShallowCopy(output);
             return new NiftiVolume(image, geometry, hasSform ? header.GetSFormCode() : header.GetQFormCode(),
-                    scale == 0 ? 1 : scale, offset);
+                    scale == 0 ? 1 : scale, offset, reader.GetQFac() < 0);
         } finally {
             reader.Delete();
         }
@@ -88,6 +88,16 @@ record NiftiVolume(vtkImageData data, SpatialTransform nativeToRas, int spaceCod
 
     Bounds bounds() {
         return nativeToRas.apply(Bounds.of(data.GetBounds()));
+    }
+
+    int mapSliceOrder(int k) {
+        return reversedK ? data.GetDimensions()[2] - 1 - k : k;
+    }
+
+    double voxelStepMm(Axis axis) {
+        double norm = Math.hypot(Math.hypot(nativeToRas.axisComponent(0, axis), nativeToRas.axisComponent(1, axis)),
+                nativeToRas.axisComponent(2, axis));
+        return norm * Math.abs(data.GetSpacing()[axis.ordinal()]);
     }
 
     @Override

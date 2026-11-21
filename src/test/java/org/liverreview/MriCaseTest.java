@@ -9,12 +9,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import edu.jhuapl.ses.vtkjavanativelibs.VtkNativeLibraries;
 import java.io.IOException;
+import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.zip.GZIPOutputStream;
+import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -127,6 +130,41 @@ class MriCaseTest {
         try (var volume = NiftiVolume.open(path, false)) {
             assertPoint(new Point(1, -2, 2.98), volume.bounds().min());
             assertPoint(new Point(1.014, -1.982, 3), volume.bounds().max());
+        }
+    }
+
+    @Test
+    void annotationCanvasPaintsOnTheOriginalNiftiSliceOrder() throws Exception {
+        Path mri = nifti("mri.nii", false, 2, 1, 50);
+        Path mask = nifti("mask.nii", true, 2, 1, 50);
+        try (var review = MriCase.open(mri, mask, false, null, null)) {
+            assertEquals(5, review.mri().mapSliceOrder(0));
+            SwingUtilities.invokeAndWait(() -> {
+                var annotations = new TumorAnnotations(review.identity());
+                var label = annotations.add("Test");
+                var canvas = new AnnotationSlice(review, () -> 0, () -> false, () -> {});
+                canvas.setSize(200, 200);
+                canvas.setLabel(annotations, label);
+                canvas.setSlice(0);
+                int firstIntensity = intensityAtCenter(canvas);
+                canvas.setSlice(5);
+                assertTrue(intensityAtCenter(canvas) > firstIntensity);
+                canvas.dispatchEvent(new MouseEvent(canvas, MouseEvent.MOUSE_PRESSED, 0,
+                        MouseEvent.BUTTON1_DOWN_MASK, 90, 90, 1, false, MouseEvent.BUTTON1));
+                assertTrue(label.pixels(5).get(3 * review.identity().width() + 3));
+                assertNull(label.pixels(0));
+            });
+        }
+    }
+
+    private int intensityAtCenter(AnnotationSlice canvas) {
+        var image = new BufferedImage(200, 200, BufferedImage.TYPE_INT_RGB);
+        var graphics = image.createGraphics();
+        try {
+            canvas.paint(graphics);
+            return image.getRGB(90, 90) & 0xff;
+        } finally {
+            graphics.dispose();
         }
     }
 

@@ -18,7 +18,13 @@ Launch `LiverModelAssessor.exe` from the packaged app folder and choose **Open m
 3. Scroll through the sagittal, coronal, and axial views using their sliders. Click a slice to move the shared crosshair. With a mesh transform supplied, the gold mask outline and dashed teal mesh outline share the same slice geometry. Click the 3D mesh to move the crosshair to that surface point.
 4. Review alignment in all three planes, then choose **Confirm and compare**. The app reports the median and 95th-percentile distance in each direction, from each source mesh vertex to the opposite surface. These are unsigned distances in millimetres. The two directions may differ with mesh sampling density.
 
-Tumor annotation and counting are later milestones in the [V2 plan](prototype%20V2.md).
+## Draw tumor annotations
+
+Open an MRI case and choose **Tumor annotations…**. Select **New label…** for each lesion. Draw with the mouse and switch on **Erase** to make corrections. Use the slider or scroll over the image to navigate the original acquisition slices. A single label can span multiple slices. Select **Show first marked slice** to jump back to the start of its mask.
+
+Mark a completed label **Reviewed** when ready. Editing its mask returns it to **Draft**. Save a `.liverlabels` file, then use **Open annotations…** to reopen it with the exact same source MRI file. The file stores the individual masks, persistent label IDs, and review states. The source MRI stays in its own file.
+
+Prompt-based counts and main-view tumor highlights follow in the [V2 plan](prototype%20V2.md).
 
 ## Build
 
@@ -29,12 +35,12 @@ mvn package
 java -jar target/app/liver-model-assessor.jar
 ```
 
-The Maven build stages the Windows VTK runtime alongside the app JAR. Tests cover mesh operations, NIfTI spatial orientation and units, linked contour geometry, and surface distances on synthetic cases.
+The Maven build stages the Windows VTK runtime alongside the app JAR. Tests cover mesh operations, NIfTI spatial orientation and units, surface distances, annotation drawing, and save/reopen behavior on synthetic cases.
 
 Build the Windows application image with JDK 21:
 
 ```powershell
-jpackage --type app-image --name LiverModelAssessor --app-version 0.2.0 --input target/app --main-jar liver-model-assessor.jar --dest target/mri-release --add-modules 'java.desktop,java.logging,java.management,jdk.unsupported'
+jpackage --type app-image --name LiverModelAssessor --app-version 0.3.0 --input target/app --main-jar liver-model-assessor.jar --dest target/annotation-release --add-modules 'java.desktop,java.logging,java.management,jdk.unsupported'
 ```
 
-Launch `target/mri-release/LiverModelAssessor/LiverModelAssessor.exe`. Keep the whole app folder together so the launcher can find its runtime and dependencies.
+Launch `target/annotation-release/LiverModelAssessor/LiverModelAssessor.exe`. Keep the whole app folder together so the launcher can find its runtime and dependencies.

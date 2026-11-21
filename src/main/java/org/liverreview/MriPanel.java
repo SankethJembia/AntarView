@@ -74,6 +74,10 @@ final class MriPanel extends JPanel implements AutoCloseable {
         }
     }
 
+    Point cursorPoint() {
+        return cursor;
+    }
+
     void setCursorPoint(Point point) {
         Point next = new Point(
                 Math.clamp(point.x(), bounds.min().x(), bounds.max().x()),
