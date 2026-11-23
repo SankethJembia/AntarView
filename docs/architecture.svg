@@ -1,0 +1,212 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1112" width="1920" height="1112" role="img" aria-labelledby="title description">
+  <title id="title">Liver Model Assessor architecture</title>
+  <desc id="description">All eighteen production classes in the Java Swing desktop app. The main window connects local mesh inspection, aligned MRI case review, and tumor annotation with case-bound label files. Maven configuration is in pom.xml.</desc>
+  <defs>
+    <marker id="arrow-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 Z" fill="#4b6075"/>
+    </marker>
+    <marker id="arrow-start" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 Z" fill="#4b6075"/>
+    </marker>
+    <style>
+      text { font-family: "Segoe UI", Arial, sans-serif; fill: #142b42; }
+      .headline { font-size: 57px; font-weight: 700; letter-spacing: -1.5px; }
+      .subtitle { font-size: 23px; fill: #4b6075; }
+      .component, .detail { text-anchor: middle; }
+      .component { font-size: 25px; font-weight: 680; }
+      .detail { font-size: 18px; fill: #4b6075; }
+      .compact .component { font-size: 22px; }
+      .compact .detail { font-size: 16px; }
+      .lane-title { font-size: 28px; font-weight: 700; }
+      .lane-action { font-size: 17px; fill: #41576b; }
+      .mesh-lane .lane { fill: #edf4fc; stroke: #bfd3e7; }
+      .mesh-lane .lane-rule { fill: #2c64a0; }
+      .mri-lane .lane { fill: #eaf6f4; stroke: #bbd8d2; }
+      .mri-lane .lane-rule { fill: #168276; }
+      .annotation-lane .lane { fill: #fcf3e3; stroke: #e3ceb0; }
+      .annotation-lane .lane-rule { fill: #a26920; }
+      .lane { stroke-width: 1.5; }
+      .box { fill: #ffffff; stroke: #a6b9cb; stroke-width: 1.5; }
+      .file .box { fill: #f7fafc; stroke-dasharray: 5 4; }
+      .build .box { fill: #e9eef4; stroke: #b2c1cf; }
+      .main .box { fill: #14354e; stroke: #14354e; }
+      .main .component { fill: #ffffff; }
+      .main .detail { fill: #d6e5ee; }
+      .arrow { fill: none; stroke: #4b6075; stroke-width: 2.3; stroke-linejoin: round; marker-end: url(#arrow-end); }
+      .configuration { stroke-dasharray: 6 5; }
+      .footer { font-size: 17px; fill: #4b6075; }
+    </style>
+  </defs>
+  <rect width="1920" height="1112" fill="#f8fafc"/>
+  <text class="headline" x="54" y="85">Liver Model Assessor</text>
+  <text class="subtitle" x="56" y="121">Java Swing desktop application</text>
+  <g aria-label="Workflows">
+    <g class="mesh-lane" aria-label="Mesh inspection">
+      <rect class="lane" x="54" y="287" width="496" height="746" rx="21"/>
+      <rect class="lane-rule" x="81" y="311" width="5" height="52" rx="2.5"/>
+      <text class="lane-title" x="99" y="333">Mesh inspection</text>
+      <text class="lane-action" x="99" y="357">Open mesh</text>
+    </g>
+    <g class="mri-lane" aria-label="MRI case review">
+      <rect class="lane" x="568" y="287" width="750" height="746" rx="21"/>
+      <rect class="lane-rule" x="595" y="311" width="5" height="52" rx="2.5"/>
+      <text class="lane-title" x="613" y="333">MRI case review</text>
+      <text class="lane-action" x="613" y="357">Open MRI case</text>
+    </g>
+    <g class="annotation-lane" aria-label="Tumor annotation">
+      <rect class="lane" x="1336" y="287" width="530" height="746" rx="21"/>
+      <rect class="lane-rule" x="1363" y="311" width="5" height="52" rx="2.5"/>
+      <text class="lane-title" x="1381" y="333">Tumor annotation</text>
+      <text class="lane-action" x="1381" y="357">Tumor annotations</text>
+    </g>
+  </g>
+  <g aria-label="Data flow and calls">
+    <path data-from="pom.xml" data-to="LiverModelAssessor" class="arrow configuration" d="M 341 189 H 400"/>
+    <path data-from="LiverModelAssessor" data-to="AssessorWindow" class="arrow" d="M 730 189 H 782"/>
+    <path data-from="AssessorWindow" data-to="Mesh inspection" class="arrow" d="M 958 228 V 255 H 302 V 287"/>
+    <path data-from="AssessorWindow" data-to="MRI case review" class="arrow" d="M 958 228 V 272 H 943 V 287"/>
+    <path data-from="AssessorWindow" data-to="Tumor annotation" class="arrow" d="M 958 255 H 1601 V 287"/>
+    <path data-from="STL / OBJ" data-to="Mesh" class="arrow" d="M 302 471 V 529"/>
+    <path data-from="Mesh" data-to="MeshSection" class="arrow" d="M 302 606 V 660"/>
+    <path data-from="Mesh" data-to="MeshViewport" class="arrow" d="M 94 568 H 76 V 859 H 94"/>
+    <path data-from="Mesh" data-to="MriCase" class="arrow" d="M 510 570 H 559 V 684 H 611"/>
+    <path data-from="MeshSection" data-to="MeshViewport" class="arrow" d="M 302 737 V 776 H 193 V 818"/>
+    <path data-from="MeshSection" data-to="ContourPanel" class="arrow" d="M 302 776 H 411 V 818"/>
+    <path data-from="MriCaseDialog" data-to="SpatialTransform" class="arrow" d="M 766 461 V 519"/>
+    <path data-from="MriCaseDialog" data-to="MriCase" class="arrow" d="M 611 423 H 587 V 662 H 611"/>
+    <path data-from="MRI + liver mask" data-to="NiftiVolume" class="arrow" d="M 1121 461 V 519"/>
+    <path data-from="SpatialTransform" data-to="MriCase" class="arrow" d="M 766 596 V 647"/>
+    <path data-from="NiftiVolume" data-to="MriCase" class="arrow" d="M 969 552 H 945 V 669 H 921"/>
+    <path data-from="NiftiVolume" data-to="MriIdentity" class="arrow" d="M 1121 596 V 647"/>
+    <path data-from="MriIdentity" data-to="MriCase" class="arrow" d="M 969 710 H 921"/>
+    <path data-from="MriCase" data-to="MriSlices" class="arrow" d="M 766 724 V 796"/>
+    <path data-from="MriCase" data-to="SurfaceDeviation" class="arrow" d="M 825 724 V 761 H 1121 V 796"/>
+    <path data-from="MriGrayscale" data-to="MriSlices" class="arrow" d="M 969 954 H 945 V 836 H 921"/>
+    <path data-from="MriSlices" data-to="MriPanel" class="arrow" d="M 766 873 V 914"/>
+    <path data-from="TumorAnnotationDialog" data-to="AnnotationSlice" class="arrow" d="M 1601 461 V 525"/>
+    <path data-from="TumorAnnotationDialog" data-to="TumorAnnotations" class="arrow" d="M 1831 423 H 1848 V 724 H 1831"/>
+    <path data-from="AnnotationSlice" data-to="TumorAnnotations" class="arrow" d="M 1601 602 V 686"/>
+    <path data-from="MriIdentity" data-to="TumorAnnotations" class="arrow" d="M 1274 697 H 1371"/>
+    <path data-from="TumorAnnotations" data-to=".liverlabels" class="arrow" d="M 1601 774 V 849" marker-start="url(#arrow-start)"/>
+  </g>
+  <g aria-label="Application components and files">
+    <g data-component="pom.xml" class="build">
+      <rect class="box" x="54" y="151" width="287" height="77" rx="12"/>
+      <text class="component" x="197.5" y="187">pom.xml</text>
+      <text class="detail" x="197.5" y="212">Maven build · VTK Java</text>
+    </g>
+    <g data-component="LiverModelAssessor">
+      <rect class="box" x="400" y="151" width="330" height="77" rx="12"/>
+      <text class="component" x="565" y="187">LiverModelAssessor</text>
+      <text class="detail" x="565" y="212">Application entry point</text>
+    </g>
+    <g data-component="AssessorWindow" class="main">
+      <rect class="box" x="782" y="151" width="352" height="77" rx="12"/>
+      <text class="component" x="958" y="187">AssessorWindow</text>
+      <text class="detail" x="958" y="212">Main Swing window</text>
+    </g>
+    <g data-component="STL / OBJ" class="file">
+      <rect class="box" x="94" y="395" width="416" height="76" rx="12"/>
+      <text class="component" x="302" y="430.5">STL / OBJ</text>
+      <text class="detail" x="302" y="455.5">Reconstructed liver mesh</text>
+    </g>
+    <g data-component="Mesh">
+      <rect class="box" x="94" y="529" width="416" height="77" rx="12"/>
+      <text class="component" x="302" y="565">Mesh</text>
+      <text class="detail" x="302" y="590">Loads surface geometry and bounds</text>
+    </g>
+    <g data-component="MeshSection">
+      <rect class="box" x="94" y="660" width="416" height="77" rx="12"/>
+      <text class="component" x="302" y="696">MeshSection</text>
+      <text class="detail" x="302" y="721">Plane and intersection contour</text>
+    </g>
+    <g data-component="MeshViewport" class="compact">
+      <rect class="box" x="94" y="818" width="198" height="98" rx="12"/>
+      <text class="component" x="193" y="855">MeshViewport</text>
+      <text class="detail" x="193" y="880">3D view, clipping</text>
+      <text class="detail" x="193" y="901">and point picking</text>
+    </g>
+    <g data-component="ContourPanel" class="compact">
+      <rect class="box" x="312" y="818" width="198" height="98" rx="12"/>
+      <text class="component" x="411" y="855">ContourPanel</text>
+      <text class="detail" x="411" y="880">2D cross-section</text>
+      <text class="detail" x="411" y="901">display</text>
+    </g>
+    <g data-component="MriCaseDialog">
+      <rect class="box" x="611" y="384" width="310" height="77" rx="12"/>
+      <text class="component" x="766" y="420">MriCaseDialog</text>
+      <text class="detail" x="766" y="445">Chooses inputs and alignment</text>
+    </g>
+    <g data-component="MRI + liver mask" class="file">
+      <rect class="box" x="969" y="384" width="305" height="77" rx="12"/>
+      <text class="component" x="1121.5" y="420">MRI + liver mask</text>
+      <text class="detail" x="1121.5" y="445">NIfTI  .nii / .nii.gz</text>
+    </g>
+    <g data-component="SpatialTransform">
+      <rect class="box" x="611" y="519" width="310" height="77" rx="12"/>
+      <text class="component" x="766" y="555">SpatialTransform</text>
+      <text class="detail" x="766" y="580">Optional 4 × 4 TXT affine</text>
+    </g>
+    <g data-component="NiftiVolume">
+      <rect class="box" x="969" y="519" width="305" height="77" rx="12"/>
+      <text class="component" x="1121.5" y="555">NiftiVolume</text>
+      <text class="detail" x="1121.5" y="580">Reads voxels and geometry</text>
+    </g>
+    <g data-component="MriCase">
+      <rect class="box" x="611" y="647" width="310" height="77" rx="12"/>
+      <text class="component" x="766" y="683">MriCase</text>
+      <text class="detail" x="766" y="708">Aligns mesh and mask surface</text>
+    </g>
+    <g data-component="MriIdentity">
+      <rect class="box" x="969" y="647" width="305" height="77" rx="12"/>
+      <text class="component" x="1121.5" y="683">MriIdentity</text>
+      <text class="detail" x="1121.5" y="708">Source fingerprint and grid</text>
+    </g>
+    <g data-component="MriSlices">
+      <rect class="box" x="611" y="796" width="310" height="77" rx="12"/>
+      <text class="component" x="766" y="832">MriSlices</text>
+      <text class="detail" x="766" y="857">Reslices MRI and cuts overlays</text>
+    </g>
+    <g data-component="SurfaceDeviation">
+      <rect class="box" x="969" y="796" width="305" height="77" rx="12"/>
+      <text class="component" x="1121.5" y="832">SurfaceDeviation</text>
+      <text class="detail" x="1121.5" y="857">Median and P95 distance · mm</text>
+    </g>
+    <g data-component="MriPanel">
+      <rect class="box" x="611" y="914" width="310" height="81" rx="12"/>
+      <text class="component" x="766" y="952">MriPanel</text>
+      <text class="detail" x="766" y="977">Linked views and crosshair</text>
+    </g>
+    <g data-component="MriGrayscale">
+      <rect class="box" x="969" y="914" width="305" height="81" rx="12"/>
+      <text class="component" x="1121.5" y="952">MriGrayscale</text>
+      <text class="detail" x="1121.5" y="977">Grayscale intensity mapping</text>
+    </g>
+    <g data-component="TumorAnnotationDialog">
+      <rect class="box" x="1371" y="384" width="460" height="77" rx="12"/>
+      <text class="component" x="1601" y="420">TumorAnnotationDialog</text>
+      <text class="detail" x="1601" y="445">Label editor and file controls</text>
+    </g>
+    <g data-component="AnnotationSlice">
+      <rect class="box" x="1371" y="525" width="460" height="77" rx="12"/>
+      <text class="component" x="1601" y="561">AnnotationSlice</text>
+      <text class="detail" x="1601" y="586">Paint and erase on source slices</text>
+    </g>
+    <g data-component="TumorAnnotations">
+      <rect class="box" x="1371" y="686" width="460" height="88" rx="12"/>
+      <text class="component" x="1601" y="727.5">TumorAnnotations</text>
+      <text class="detail" x="1601" y="752.5">Masks, label IDs and review state</text>
+    </g>
+    <g data-component=".liverlabels" class="file">
+      <rect class="box" x="1371" y="849" width="460" height="77" rx="12"/>
+      <text class="component" x="1601" y="885">.liverlabels</text>
+      <text class="detail" x="1601" y="910">Read and write annotations for the same MRI</text>
+    </g>
+  </g>
+  <line x1="54" y1="1056" x2="1866" y2="1056" stroke="#dce5ee"/>
+  <path class="arrow" d="M 57 1082 H 94"/>
+  <text class="footer" x="105" y="1088">Data or calls</text>
+  <path class="arrow configuration" d="M 248 1082 H 285"/>
+  <text class="footer" x="296" y="1088">Build configuration</text>
+  <text class="footer" x="1866" y="1088" text-anchor="end">src/main/java/org/liverreview</text>
+</svg>
